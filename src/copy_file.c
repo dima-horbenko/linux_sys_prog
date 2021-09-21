@@ -9,7 +9,7 @@
 
 void main()
 {
-    int fin, fout; // Input and output file handles
+    int fin, fout; // Input and output file handles or file descriptors
     char buf[BSIZE];
     int count;
 
