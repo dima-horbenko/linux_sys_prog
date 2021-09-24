@@ -7,15 +7,29 @@ It is something like ls command. */
 #include <sys/stat.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 
 #define SHIFT_TO_TYPE 12
 
 void listfile(const char *name);
 
 
-void main(int argc, char* argv[])
+void main(int argc, char *argv[])
 {
-    listfile(argv[1]);
+    if (argc != 2)
+    {
+        fprintf(stderr, "Usage: listdir <dirname>\n");
+        exit(1);
+    }
+
+    chdir(argv[1]);
+    DIR *d = opendir(".");
+
+    struct dirent *entry;
+    while ((entry = readdir(d)) != NULL)
+    {
+        listfile(entry->d_name);
+    }
 }
 
 
