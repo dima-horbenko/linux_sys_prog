@@ -8,17 +8,13 @@ Monitor specified files for changes using inotify and log changes to file */
 #include <string.h>
 #include <sys/inotify.h>
 #include <limits.h>
+#include <unistd.h>
 
 /* A buffer big enough to read 100 events in one go */
 #define BUFSIZE (100 * (sizeof(struct inotify_event) +  NAME_MAX + 1))
 
 void main()
 {
-    /* Descriptor of the log file */
-    FILE *fout;
-    char eventbuf[BUFSIZE];
-    int n;
-    char *p;
     struct inotify_event *event;
 
 
@@ -50,18 +46,51 @@ void main()
         if (S_ISREG(sb.st_mode))
         {
             /* Regular file, so add to watchlist */
-            if ((watchfd = inotify_add_watch(notifyfd, watchname, IN_MODIFY | IN_DELETE_SELF)) < 0)
+            if ((watchfd = inotify_add_watch(notifyfd, watchname,
+                                            IN_MODIFY | IN_DELETE_SELF)) < 0)
             {
                 printf("Error! Watch for %s not added.\n", watchname);
             }
             else
             {
-
+                printf("Added %s to watchlist on descriptor %d\n", watchname,
+                        watchfd);
+                strcpy(watchednames[watchfd], watchname);
             }
+        }
+        else
+        {
+            printf("%s is not a regular file. Ignored.\n", watchname);
         }
     }
 
+    /* Descriptor of the log file. Open it in "a"ppend mode */
+    FILE *fout = fopen("monitor.log", "a");
+    char eventbuf[BUFSIZE];
+    int n;
+    char *p;
 
+    while (1)
+    {
+        n = read(notifyfd, eventbuf, sizeof(eventbuf));
+        /* Loop over all events and report them. This is a little bit tricky
+        because the event records are not of fixed length */
+        for (p = eventbuf; p < eventbuf + n;)
+        {
+            event = (struct inotify_event *)p;
+            p += sizeof(struct inotify_event) + event->len;
+
+            if (event->mask & IN_MODIFY)
+            {
+                fprintf(fout, "%s was modified\n", watchednames[event->wd]);
+            }
+            if (event->mask & IN_DELETE_SELF)
+            {
+                fprintf(fout, "%s was deleted\n", watchednames[event->wd]);
+            }
+            fflush(fout);
+        }
+    }
 }
 
 
