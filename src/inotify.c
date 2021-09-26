@@ -15,7 +15,6 @@ Monitor specified files for changes using inotify and log changes to file */
 
 void main()
 {
-    struct inotify_event *event;
 
 
     /* Descriptor of the file that contains a list of monitored files*/
@@ -23,7 +22,8 @@ void main()
     /* Open the config file for reading and check for errors*/
     if ((fconfig = fopen("monitor.conf", "r")) == NULL)
     {
-        fprintf(stderr, "Unable to open the file.\n");
+        fprintf(stderr, "Unable to open config file monitor.conf, \
+                        make sure it exists.\n");
         exit(1);
     }
 
@@ -37,6 +37,8 @@ void main()
     /* Read all watched file names from config file */
     while (fgets(watchname, sizeof(watchname), fconfig) != NULL)
     {
+        /* Remove trailing \n from the watchname and replace it with \0 */
+        watchname[strlen(watchname) - 1] = '\0';
         if (stat(watchname, &sb) < 0)
         {
             printf("Cannot stat file %s. Ignored.\n", watchname);
@@ -69,6 +71,7 @@ void main()
     char eventbuf[BUFSIZE];
     int n;
     char *p;
+    struct inotify_event *event;
 
     while (1)
     {
@@ -78,6 +81,7 @@ void main()
         for (p = eventbuf; p < eventbuf + n;)
         {
             event = (struct inotify_event *)p;
+            /* We must handle pointer arithmetic explicitly here */
             p += sizeof(struct inotify_event) + event->len;
 
             if (event->mask & IN_MODIFY)
@@ -88,6 +92,8 @@ void main()
             {
                 fprintf(fout, "%s was deleted\n", watchednames[event->wd]);
             }
+            /* Since this program never terminates itself we're flushing
+            write buffer every loop cycle */
             fflush(fout);
         }
     }
